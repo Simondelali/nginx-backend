@@ -1,23 +1,61 @@
-- name: Cleanup old container and free port 8080
-  run: |
-    docker stop nginx-backend-test || true
-    docker rm nginx-backend-test || true
+name: Test and Merge NGINX
 
-    pids=$(lsof -t -i:8080) || true
-    if [ ! -z "$pids" ]; then
-      echo "Killing processes on port 8080: $pids"
-      kill -9 $pids
-    fi
+on:
+  push:
+    branches:
+      - test
 
-    sleep 3
+jobs:
+  test:
+    runs-on: self-hosted
 
-- name: Build Docker image
-  run: docker build -t nginx-backend:test .
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-- name: Run container and health check
-  run: |
-    docker run -d --name nginx-backend-test -p 8080:80 nginx-backend:test
-    sleep 5
-    curl --fail http://localhost:8080 || exit 1
-    docker stop nginx-backend-test
-    docker rm nginx-backend-test
+      - name: Cleanup old container and free port 8080
+        run: |
+          docker stop nginx-backend-test || true
+          docker rm nginx-backend-test || true
+
+          pids=$(lsof -t -i:8080) || true
+          if [ ! -z "$pids" ]; then
+            echo "Killing processes on port 8080: $pids"
+            kill -9 $pids
+          fi
+
+          sleep 3
+
+      - name: Build Docker image
+        run: docker build -t nginx-backend:test .
+
+      - name: Run container and health check
+        run: |
+          docker run -d --name nginx-backend-test -p 8080:80 nginx-backend:test
+          sleep 5
+          curl --fail http://localhost:8080 || exit 1
+          docker stop nginx-backend-test
+          docker rm nginx-backend-test
+
+  merge:
+    needs: test
+    runs-on: self-hosted
+    if: success()
+
+    steps:
+      - name: Setup Git identity
+        run: |
+          git config --global user.name "CI Bot"
+          git config --global user.email "ci@local.test"
+
+      - name: Fetch all branches
+        run: git fetch origin
+
+      - name: Checkout main branch
+        run: git checkout main
+
+      - name: Merge test branch into main
+        run: git merge test
+
+      - name: Push merged changes
+        run: git push origin main

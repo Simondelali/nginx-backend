@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cleanup old test container
+      - name: Clean any old test container
         run: docker rm -f nginx-backend-test || true
 
       - name: Build Docker image
@@ -27,25 +27,27 @@ jobs:
           docker stop nginx-backend-test
           docker rm nginx-backend-test
 
-  merge:
+  promote:
     needs: test
     runs-on: self-hosted
     if: success()
 
     steps:
-      - name: Setup Git identity
+      - name: Set up Git identity
         run: |
           git config --global user.name "CI Bot"
           git config --global user.email "ci@local.test"
 
-      - name: Fetch all branches
-        run: git fetch origin
-
       - name: Checkout main branch
-        run: git checkout main
+        run: |
+          git fetch origin
+          git checkout main
 
-      - name: Merge test branch into main
-        run: git merge test --allow-unrelated-histories
+      - name: Merge test into main with clean strategy
+        run: |
+          git merge origin/test --strategy=recursive --strategy-option=theirs --allow-unrelated-histories || true
+          git add .
+          git commit -m "Automated merge from test into main [CI]" || true
 
-      - name: Push merged changes
+      - name: Push merge result
         run: git push origin main

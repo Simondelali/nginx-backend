@@ -1,18 +1,27 @@
-name: Deploy NGINX Backend
+name: Deploy NGINX App
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v3
 
-      - name: Build and run container
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v3
+
+      - name: Stop and remove previous container
+        run: docker rm -f nginx-backend || true
+
+      - name: Build latest Docker image
+        run: docker build -t nginx-backend:latest .
+
+      - name: Run production container
         run: |
-          docker build -t nginx-backend:latest .
-          docker stop nginx-backend || true
-          docker rm nginx-backend || true
-          docker run -d -p 8080:80 --name nginx-backend nginx-backend:latest
+          docker run -d \
+            --name nginx-backend \
+            -p 8080:80 \
+            nginx-backend:latest

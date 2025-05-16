@@ -13,30 +13,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cleanup old container and free port 8080
-        run: |
-          echo "Stopping and removing any existing container named nginx-backend-test"
-          docker stop nginx-backend-test || true
-          docker rm nginx-backend-test || true
-
-          echo "Killing any process using port 8080"
-          pids=$(lsof -t -i:8080) || true
-          if [ ! -z "$pids" ]; then
-            echo "Found processes on port 8080: $pids"
-            kill -9 $pids
-          fi
-
-          # Wait until port 8080 is free
-          echo "Waiting for port 8080 to be free..."
-          for i in {1..10}; do
-            if ! lsof -i:8080 >/dev/null; then
-              echo "Port 8080 is now free"
-              break
-            else
-              echo "Port 8080 still in use, waiting..."
-              sleep 3
-            fi
-          done
+      - name: Cleanup old test container
+        run: docker rm -f nginx-backend-test || true
 
       - name: Build Docker image
         run: docker build -t nginx-backend:test .

@@ -1,12 +1,44 @@
-- name: Cleanup old test container
-  run: |
-    docker stop nginx-backend-test || true
-    docker rm nginx-backend-test || true
+name: Test and Merge NGINX
 
-- name: Run and health check
-  run: |
-    docker run -d --name nginx-backend-test -p 8080:80 nginx-backend:test
-    sleep 5
-    curl --fail http://localhost:8080 || exit 1
-    docker stop nginx-backend-test
-    docker rm nginx-backend-test
+on:
+  push:
+    branches: [ test ]
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cleanup old test container
+        run: |
+          docker stop nginx-backend-test || true
+          docker rm nginx-backend-test || true
+
+      - name: Build Docker image
+        run: docker build -t nginx-backend:test .
+
+      - name: Run and health check
+        run: |
+          docker run -d --name nginx-backend-test -p 8080:80 nginx-backend:test
+          sleep 5
+          curl --fail http://localhost:8080 || exit 1
+          docker stop nginx-backend-test
+          docker rm nginx-backend-test
+
+  merge:
+    needs: test
+    runs-on: self-hosted
+    if: success()
+    steps:
+      - name: Setup Git identity
+        run: |
+          git config --global user.name "CI Bot"
+          git config --global user.email "ci@local.test"
+
+      - name: Merge test to main
+        run: |
+          git fetch origin
+          git checkout main
+          git merge test
+          git push origin main

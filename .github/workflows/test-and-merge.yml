@@ -1,0 +1,35 @@
+name: Test and Merge NGINX
+
+on:
+  push:
+    branches: [ test ]
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build nginx container
+        run: docker build -t nginx-backend:test .
+
+      - name: Run container and check
+        run: |
+          docker run -d --name nginx-backend-test -p 8080:80 nginx-backend:test
+          sleep 5
+          curl --fail http://localhost:8080 || exit 1
+          docker stop nginx-backend-test
+          docker rm nginx-backend-test
+
+  merge:
+    needs: test
+    runs-on: self-hosted
+    if: success()
+    steps:
+      - name: Merge to main
+        run: |
+          git config --global user.email "ci@local.test"
+          git config --global user.name "CI Bot"
+          git checkout main
+          git merge test
+          git push origin main

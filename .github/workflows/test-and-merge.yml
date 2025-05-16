@@ -45,7 +45,7 @@ jobs:
         run: git checkout main
 
       - name: Merge test branch into main
-        run: git merge test
+        run: git merge test --allow-unrelated-histories
 
       - name: Push merged changes
         run: git push origin main

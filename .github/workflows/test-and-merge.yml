@@ -21,7 +21,7 @@ jobs:
 
       - name: Run container and health check
         run: |
-          docker run -d --name nginx-backend-test -p 8080:80 nginx-backend:test
+          docker run -d --name nginx-backend-test -p 8081:80 nginx-backend:test
           sleep 10
           curl --fail http://localhost:8080 || (docker logs nginx-backend-test && exit 1)
           docker stop nginx-backend-test

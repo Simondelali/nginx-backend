@@ -1,55 +1,23 @@
-name: Test and Merge NGINX
+- name: Cleanup old container and free port 8080
+  run: |
+    docker stop nginx-backend-test || true
+    docker rm nginx-backend-test || true
 
-on:
-  push:
-    branches: [ test ]
+    pids=$(lsof -t -i:8080) || true
+    if [ ! -z "$pids" ]; then
+      echo "Killing processes on port 8080: $pids"
+      kill -9 $pids
+    fi
 
-jobs:
-  test:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v3
+    sleep 3
 
-      - name: Cleanup old test container and free port 8080
-        run: |
-          docker stop nginx-backend-test || true
-          docker rm nginx-backend-test || true
+- name: Build Docker image
+  run: docker build -t nginx-backend:test .
 
-          # Kill any process using port 8080
-          pid=$(lsof -t -i:8080) || true
-          if [ ! -z "$pid" ]; then
-            kill -9 $pid
-          fi
-
-      - name: Build Docker image
-        run: docker build -t nginx-backend:test .
-
-      - name: Run container and health check
-        run: |
-          docker run -d --name nginx-backend-test -p 8080:80 nginx-backend:test
-          sleep 5
-          curl --fail http://localhost:8080 || exit 1
-          docker stop nginx-backend-test
-          docker rm nginx-backend-test
-
-  merge:
-    needs: test
-    runs-on: self-hosted
-    if: success()
-    steps:
-      - name: Setup Git identity
-        run: |
-          git config --global user.name "CI Bot"
-          git config --global user.email "ci@local.test"
-
-      - name: Fetch all branches
-        run: git fetch origin
-
-      - name: Checkout main branch
-        run: git checkout main
-
-      - name: Merge test into main
-        run: git merge test
-
-      - name: Push merged changes to main
-        run: git push origin main
+- name: Run container and health check
+  run: |
+    docker run -d --name nginx-backend-test -p 8080:80 nginx-backend:test
+    sleep 5
+    curl --fail http://localhost:8080 || exit 1
+    docker stop nginx-backend-test
+    docker rm nginx-backend-test
